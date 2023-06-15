@@ -7,6 +7,7 @@
 
 #define rad2deg 180 / M_PI
 #define deg2rad M_PI / 180
+// watch() is only to be used for debugging purpose during development
 #define watch(x) std::cout << (#x) << ":\n " << (x) << std::endl
 
 using Eigen::MatrixXd;
@@ -15,7 +16,7 @@ using Eigen::VectorXd;
 
 int main()
 {
-//All the constant stuff
+//Initialise platform defaults here
     double X, Y, Z, phi, theta, psi;
     double servo_arm = 18;
     double servo_leg = 140;
@@ -40,7 +41,7 @@ int main()
     Platform_pos_zero.transposeInPlace();
     watch(Platform_pos_zero); // debug
 
-    // Servo points (base) //! z changed to all zeros // Trying to make it sy
+    // Servo points (base) //! z changed to all zeros
     MatrixXd Servo_pos{
         {-46.5, 74, 0},
         {-90.5, 1.1, 0},
@@ -59,7 +60,7 @@ int main()
 
     };
 
-    // For CSV
+    // This is where we open the data.csv file to write updates into for the animation
 
     std::fstream file;
     file << std::fixed << std::setprecision(3); // set precision to 3 decimal places
@@ -95,27 +96,23 @@ int main()
 
        // Calculate platform's home position (New_pos)
        MatrixXd Rotated_platform = R_PB * Platform_pos_zero;
-       //MatrixXd New_pos = (T.array().replicate<1, 6>().matrix()).array() + Rotated_platform.array();
-
-
        MatrixXd New_pos = T.replicate<1, 6>().array() + Rotated_platform.array(); // q
        watch(Rotated_platform);//debug
        watch(New_pos);//debug
 
        // Calculate angle of the servo arm at home position
-       // First find the linear Leg length
+       // First finding the linear Leg length
 
        MatrixXd lin_leg_lengths = New_pos - Servo_pos;
        watch(lin_leg_lengths);//debug
        // The .colwise().norm() method calculates the Euclidean norm of each column,
        // which corresponds to the length of each leg vector
        MatrixXd virtual_leg_lengths = (lin_leg_lengths).colwise().norm();
-
        watch(virtual_leg_lengths);
 
 
 
-       // Due to platform symmetry, we can only consider the leg with 0 beta //!Are we symmetric?
+       // Due to platform symmetry, we can only consider the leg with 0 beta
        double L_home = 2 * std::pow(servo_arm, 2);
        double M_home = 2 * servo_arm * (New_pos(0,0) - Servo_pos(0,0));
        double N_home = 2 * servo_arm * (h_0 + New_pos(2,3));
@@ -128,7 +125,7 @@ int main()
        watch(alpha_home);//debug
        watch(alpha_home_deg);//debug
 
-      // Let's try to workout the servo arm/leg join positions
+      // Calculating the servo arm/leg join positions
 
 
        Eigen::Matrix<double,3,6> Knee_pos;
@@ -141,20 +138,7 @@ int main()
                 }
 
                   watch(Knee_pos);
-                // For CSV
-                /* MatrixXd Knee_pos_csv = Knee_pos;
-                  Knee_pos_csv.transposeInPlace();
-                  for (size_t i = 0; i<6; i++)
-                    {
-                        for (size_t j = 0; j<3; j++)
 
-                        {
-                            file << Knee_pos_csv(i,j);
-                            file << ";";
-                        }
-                        file << "\n";
-
-                    } */
 
         FLAG = 1;
     };
@@ -164,7 +148,7 @@ int main()
     {
 
 
-    // Parameters (3 trans inputs and 3 rot inputs)
+    // Parameters (3 translational inputs and 3 rotational inputs)
     double X = 0;
     double Y = 0;
     double Z = -10;
@@ -192,9 +176,9 @@ int main()
        watch(R_PB);//debug
        watch(phi);//debug
 
-       //! testing rot import
+
        // Rotation matrix (R = Rz*Ry*Rx) used to take platform stuff to base frame
-    MatrixXd R_PB{
+        MatrixXd R_PB{
         {cos(psi) * cos(theta), (-sin(psi) * cos(phi)) + (cos(psi) * sin(theta) * sin(phi)), (sin(psi) * sin(phi)) + (cos(psi) * sin(theta) * cos(phi))},
         {sin(psi) * cos(theta), (cos(psi) * cos(phi)) + (sin(psi) * sin(theta) * sin(phi)), (-cos(psi) * sin(phi)) + (sin(psi) * sin(theta) * cos(phi))},
         {-sin(theta), cos(theta) * sin(phi), cos(theta) * cos(phi)}
@@ -203,9 +187,6 @@ int main()
 
        // Calculate platform's transformed position(New_pos)
        MatrixXd Rotated_platform = R_PB * Platform_pos_zero;
-       //MatrixXd New_pos = (T.array().replicate<1, 6>().matrix()).array() + Rotated_platform.array();
-
-
        MatrixXd New_pos = T.replicate<1, 6>().array() + Rotated_platform.array(); // q
        watch(Rotated_platform);//debug
        watch(New_pos);//debug
@@ -268,7 +249,7 @@ int main()
         watch(alpha);
         watch(servo_deg);
 
-        // Let's save it all in a CSV
+        // Let's save it all in the CSV file we opened previously. This will update the simulation.
         New_pos.transposeInPlace();
         for (size_t i = 0; i<6; i++)
         {
@@ -292,7 +273,7 @@ int main()
                 }
 
                   watch(Knee_pos_new);
-                // For CSV
+                // Updating the new knee positions in the opened CSV file
                 MatrixXd Knee_pos_csv = Knee_pos_new;
                   Knee_pos_csv.transposeInPlace();
                   for (size_t i = 0; i<6; i++)
