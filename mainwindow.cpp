@@ -10,6 +10,7 @@
 
 #define rad2deg 180 / M_PI
 #define deg2rad M_PI / 180
+// Used only for debugging during development
 #define watch(x) std::cout << (#x) << ":\n " << (x) << std::endl
 
 using Eigen::MatrixXd;
@@ -37,12 +38,7 @@ MainWindow::~MainWindow()
 
 void MainWindow::on_pushButton_3_clicked()
 {
-    // set sliders to 0
-       // qDebug() << "Slider_X: " << Slider_X;
-       // qDebug() << "Slider_Z: " << Slider_Z;
-       // qDebug() << "Slider_PHI: " << Slider_PHI;
-       // qDebug() << "Slider_THETA: " << Slider_THETA;
-       // qDebug() << "Slider_PSI: " << Slider_PSI;
+
        ui ->Slider_X->setValue(0);
        ui ->Slider_Y->setValue(0);
        ui ->Slider_Z->setValue(0);
@@ -51,14 +47,8 @@ void MainWindow::on_pushButton_3_clicked()
        ui ->Slider_THETA->setValue(0);
        ui ->Slider_PSI->setValue(0);
 
-    //Slider_X->setSliderPosition(0);
-           // Slider_Z->setSliderPosition(0);
-           // Slider_PHI->setSliderPosition(0);
-          //  Slider_THETA->setSliderPosition(0);
-           // Slider_PSI->setSliderPosition(0);
 
-
-    //All the constant stuff
+    //Platform geometric parameters
         double X, Y, Z, phi, theta, psi;
         double servo_arm = 18;
         double servo_leg = 140;
@@ -72,7 +62,7 @@ void MainWindow::on_pushButton_3_clicked()
         double height = 155;
         int FLAG = 0;
 
-        // Platform points (top) Pi
+        // Platform coordinates (top)
         MatrixXd Platform_pos_zero{
             {-41.4, 38.3, 0},
             {-53.9, 16.7, 0},
@@ -81,9 +71,9 @@ void MainWindow::on_pushButton_3_clicked()
             {53.9, 16.7, 0},
             {41.4, 38.3, 0}};
         Platform_pos_zero.transposeInPlace();
-       // watch(Platform_pos_zero); // debug
 
-        // Servo points (base) //! z changed to all zeros // Trying to make it sy
+
+        // Servo coordingates (base)
         MatrixXd Servo_pos{
             {-46.5, 74, 0},
             {-90.5, 1.1, 0},
@@ -92,7 +82,7 @@ void MainWindow::on_pushButton_3_clicked()
             {90.5, 1.14, 0},
             {46.5, 74, 0}};
         Servo_pos.transposeInPlace();
-       // watch(Servo_pos); // debug
+
 
         // Rotation matrix (R = Rz*Ry*Rx) used to take platform stuff to base frame
         MatrixXd R_PB{
@@ -108,7 +98,7 @@ void MainWindow::on_pushButton_3_clicked()
     // Initialising to home position
         while(FLAG == 0)
         {
-           //Parameters (3 trans inputs and 3 rot inputs)
+           //Parameters (3 translational inputs and 3 rotational inputs)
            X = Y = Z = phi = theta = psi = 0;
 
            // Height of the platform when servo arm is perpendicular to leg
@@ -116,7 +106,7 @@ void MainWindow::on_pushButton_3_clicked()
                    - std::pow(Platform_pos_zero(0,0) - Servo_pos(0,0),2)
                    - std::pow(Platform_pos_zero(1,0) - Servo_pos(1,0),2))
                    - Platform_pos_zero(2,0);
-                     //watch(h_0);//debug
+
 
            // Platform points when zero rotation and translation
            Eigen::Matrix<double, 3, 1> t_home;
@@ -125,30 +115,23 @@ void MainWindow::on_pushButton_3_clicked()
            t_input << X, Y, Z;
            Eigen::Matrix<double, 3, 1> T;
            T = t_home + t_input;
-           //watch(t_home);//debug
-           //watch(t_input);//debug
-           //watch(T);//debug
-           //watch(R_PB);//debug
+
 
            // Calculate platform's home position (New_pos)
            MatrixXd Rotated_platform = R_PB * Platform_pos_zero;
-           //MatrixXd New_pos = (T.array().replicate<1, 6>().matrix()).array() + Rotated_platform.array();
-
-
            MatrixXd New_pos = T.replicate<1, 6>().array() + Rotated_platform.array(); // q
-           //watch(Rotated_platform);//debug
-           //watch(New_pos);//debug
+
 
            // Calculate angle of the servo arm at home position
-           // First find the linear Leg length
+           // First calculating the linear Leg length
 
            MatrixXd lin_leg_lengths = New_pos - Servo_pos;
-           //watch(lin_leg_lengths);//debug
+
            // The .colwise().norm() method calculates the Euclidean norm of each column,
            // which corresponds to the length of each leg vector
            MatrixXd virtual_leg_lengths = (lin_leg_lengths).colwise().norm();
 
-           //watch(virtual_leg_lengths);
+
 
 
 
@@ -159,20 +142,15 @@ void MainWindow::on_pushButton_3_clicked()
 
            double alpha_home = asin(L_home/sqrt(pow(M_home,2)+pow(N_home,2))) - atan(M_home/N_home);
            double alpha_home_deg = rad2deg*alpha_home;
-           //watch(L_home);//debug
-           //watch(M_home);//debug
-           //watch(N_home);//debug
-          // watch(alpha_home);//debug
-          // watch(alpha_home_deg);//debug
 
           // Let's try to workout the servo arm/leg join positions
 
-           // For CSV
+           // For writing simulation outputs to CSV file
 
            std::fstream file;
            file << std::fixed << std::setprecision(3); // set precision to 3 decimal places
            file.open("data.csv", std::ios::out);
-       ///home/fahim/Cpp23/First demo/Project SP/Kinematics/
+
 
 
            // Let's save it all in a CSV
@@ -188,7 +166,7 @@ void MainWindow::on_pushButton_3_clicked()
                 file << "\n";
 
            }
-        //Changed knee position
+        //Update knee position
         Eigen::Matrix<double,3,6> Knee_pos_home;
 
                    for (size_t j=0; j<6; j++)
@@ -198,8 +176,8 @@ void MainWindow::on_pushButton_3_clicked()
                        Knee_pos_home(2,j) = servo_arm*sin(alpha_home) + Servo_pos(2,j);
                    }
 
-                    // watch(Knee_pos_new);
-                   // For CSV
+
+                   // Updating CSV file with new knee position information
                    MatrixXd Knee_pos_csv = Knee_pos_home;
                      Knee_pos_csv.transposeInPlace();
                      for (size_t i = 0; i<6; i++)
@@ -218,30 +196,6 @@ void MainWindow::on_pushButton_3_clicked()
            file.close();
 
 
-           //Eigen::Matrix<double,3,6> Knee_pos;
-
-                    //for (size_t j=0; j<6; j++)
-                   // {
-                     //   Knee_pos(0,j) = servo_arm*cos(alpha_home)*cos(beta[j]) + Servo_pos(0,j);
-                      //  Knee_pos(1,j) = servo_arm*cos(alpha_home)*sin(beta[j]) + Servo_pos(1,j);
-                       // Knee_pos(2,j) = servo_arm*sin(alpha_home) + Servo_pos(2,j);
-                   // }
-
-                      //watch(Knee_pos);
-                    // For CSV
-                    /* MatrixXd Knee_pos_csv = Knee_pos;
-                      Knee_pos_csv.transposeInPlace();
-                      for (size_t i = 0; i<6; i++)
-                        {
-                            for (size_t j = 0; j<3; j++)
-
-                            {
-                                file << Knee_pos_csv(i,j);
-                                file << ";";
-                            }
-                            file << "\n";
-
-                        } */
 
             FLAG = 1;
         };
@@ -256,11 +210,11 @@ void MainWindow::on_pushButton_clicked()
                         M_PI,
                         0,
                         5 * M_PI / 3,
-                        2 * M_PI / 3}; //! Changes home calcs
+                        2 * M_PI / 3};
     double height = 155;
 
 
-    // Platform points (top) Pi
+    // Platform coordinates (top)
     MatrixXd Platform_pos_zero{
         {-41.4, 38.3, 0},
         {-53.9, 16.7, 0},
@@ -269,9 +223,9 @@ void MainWindow::on_pushButton_clicked()
         {53.9, 16.7, 0},
         {41.4, 38.3, 0}};
     Platform_pos_zero.transposeInPlace();
-   // watch(Platform_pos_zero); // debug
 
-    // Servo points (base) //! z changed to all zeros // Trying to make it sy
+
+    // SServo coordingates (base)
     MatrixXd Servo_pos{
         {-46.5, 74, 0},
         {-90.5, 1.1, 0},
@@ -280,7 +234,7 @@ void MainWindow::on_pushButton_clicked()
         {90.5, 1.14, 0},
         {46.5, 74, 0}};
     Servo_pos.transposeInPlace();
-   // watch(Servo_pos); // debug
+
 
     // Rotation matrix (R = Rz*Ry*Rx) used to take platform stuff to base frame
     MatrixXd R_PB{
@@ -295,16 +249,6 @@ void MainWindow::on_pushButton_clicked()
         while(FLAG == 1)
         {
 
-
-        // Parameters (3 trans inputs and 3 rot inputs)
-        //double X;//=  1.0*(ui->Slider_X->value());
-        //double Y;//= 1.0*(ui ->Slider_Y ->value());
-        //double Z;//= 1.0*(ui ->Slider_Z -> value());
-        //double phi;//= deg2rad*(ui->Slider_PHI ->value()) ;//-0.087266462599717;
-        //double theta;//= deg2rad*(ui ->Slider_THETA ->value());//0.226892802759263;
-        //double psi;// = deg2rad*(ui ->Slider_PSI -> value());//0.2;//0.191986217719376;
-
-        // Height of the platform when servo arm is perpendicular to leg
            double h_0 = sqrt(std::pow(servo_leg,2) + std::pow(servo_arm,2)
                    - std::pow(Platform_pos_zero(0,0) - Servo_pos(0,0),2)
                    - std::pow(Platform_pos_zero(1,0) - Servo_pos(1,0),2))
@@ -319,13 +263,9 @@ void MainWindow::on_pushButton_clicked()
            qDebug() << "X here is :" << X;
            Eigen::Matrix<double, 3, 1> T;
            T = t_home + t_input;
-          // watch(t_home);//debug
-           //watch(t_input);//debug
-          // watch(T);//debug
-          // watch(R_PB);//debug
-          // watch(phi);//debug
 
-           //! testing rot import
+
+
            // Rotation matrix (R = Rz*Ry*Rx) used to take platform stuff to base frame
         MatrixXd R_PB{
             {cos(psi) * cos(theta), (-sin(psi) * cos(phi)) + (cos(psi) * sin(theta) * sin(phi)), (sin(psi) * sin(phi)) + (cos(psi) * sin(theta) * cos(phi))},
@@ -336,24 +276,20 @@ void MainWindow::on_pushButton_clicked()
 
            // Calculate platform's transformed position(New_pos)
            MatrixXd Rotated_platform = R_PB * Platform_pos_zero;
-           //MatrixXd New_pos = (T.array().replicate<1, 6>().matrix()).array() + Rotated_platform.array();
-
-
            MatrixXd New_pos = T.replicate<1, 6>().array() + Rotated_platform.array(); // q
-           //watch(Rotated_platform);//debug
-          // watch(New_pos);//debug
+
 
            // Calculate angle of the servo arm at NEW position
            // First find the linear Leg length
 
            MatrixXd lin_leg_lengths = New_pos - Servo_pos;
-          // watch(lin_leg_lengths);//debug
+
            // The .colwise().norm() method calculates the Euclidean norm of each column,
            // which corresponds to the length of each leg vector
            MatrixXd virtual_leg_lengths = (lin_leg_lengths).colwise().norm();
            watch(virtual_leg_lengths);
 
-           // Calculate the servo angles for each leg
+           // Calculating the servo angles for each leg
 
            Eigen::Matrix<double,1,6> L;
             for (size_t i=0;i<6;i++)
@@ -364,7 +300,7 @@ void MainWindow::on_pushButton_clicked()
 
             }
 
-           // watch(L);//debug
+
 
             Eigen::Matrix<double,1,6> M;
             for (size_t i=0;i<6;i++)
@@ -373,7 +309,7 @@ void MainWindow::on_pushButton_clicked()
 
             }
 
-           // watch(M);//debug
+
 
             Eigen::Matrix<double,1,6> N;
             for (size_t i=0;i<6;i++)
@@ -383,7 +319,7 @@ void MainWindow::on_pushButton_clicked()
                 N(0,i) = 2*servo_arm*((cos(beta[i])*x_diff)+(sin(beta[i])*y_diff));
             }
 
-           // watch(N);//debug
+
 
             // Now we can calculate the servo angles
             Eigen::Matrix<double,1,6>alpha;
@@ -398,14 +334,13 @@ void MainWindow::on_pushButton_clicked()
 
             }
 
-            //watch(alpha);
-           // watch(servo_deg);
-            // For CSV
+
+            // Updating CSV file
 
             std::fstream file;
             file << std::fixed << std::setprecision(3); // set precision to 3 decimal places
             file.open("data.csv", std::ios::out);
-        ///home/fahim/Cpp23/First demo/Project SP/Kinematics/
+
 
 
             // Let's save it all in a CSV
@@ -431,7 +366,7 @@ void MainWindow::on_pushButton_clicked()
                         Knee_pos_new(2,j) = servo_arm*sin(alpha[j]) + Servo_pos(2,j);
                     }
 
-                     // watch(Knee_pos_new);
+
                     // For CSV
                     MatrixXd Knee_pos_csv = Knee_pos_new;
                       Knee_pos_csv.transposeInPlace();
@@ -450,16 +385,7 @@ void MainWindow::on_pushButton_clicked()
 
             file.close();
             FLAG = 0;
-            // add a delay to allow other tasks to be performed
-               //std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
-
-
-            //QApplication::processEvents();
-                  //  if (ui->pushButton_2->isChecked()) {
-
-                    //    FLAG = 0;
-                   // }
 
 
         };
